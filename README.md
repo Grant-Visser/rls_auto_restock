@@ -145,6 +145,11 @@ rls_auto_restock/
 └── ui/ui-vue/mods/rls_auto_restock/ui/AutoRestockPanel.vue  ← the tab UI (loaded by BeamNG's runtime component loader)
 ```
 
+Want to build your own RLS companion mod? The complete knowledge base this mod was debugged
+against lives in **[docs/skills](docs/skills/README.md)** — RLS architecture, extension
+patterns, business-computer tab integration, the bridge/round-trip pitfalls, and the full
+debugging playbook.
+
 - **Lua side** — RLS keeps store state (`stock`, `storageLevel`, `cycleProgress`, `wholesaleOwned`,
   `operating`) in a module-local table. The companion binds to that live table through a debug
   upvalue anchor, so stock reads/writes stay consistent with RLS's own production loop without
