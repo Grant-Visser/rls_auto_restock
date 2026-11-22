@@ -1,8 +1,23 @@
-// UI entry point for the rls_auto_restock mod directory.
-// The Auto-Restock tab itself is mounted by RLS Career Overhaul's Business Computer through the
-// business-type manifest (gameplay/overhaul/business/types/rls-auto-restock-tabs.json); this entry
-// registers the mod directory with BeamNG's runtime module loader so the tab's .vue can be served.
+import { loadModule, getComponent } from "@/services/uiMods"
 
-export async function onLoad() {}
+const PANEL = "/ui/ui-vue/mods/rls_auto_restock/ui/AutoRestockPanel.vue"
+
+export async function onLoad() {
+  console.warn("[rls_auto_restock] UI entry point loaded")
+  try {
+    const mod = await loadModule(PANEL)
+    console.warn("[rls_auto_restock] panel module ready: " + typeof (mod && mod.default))
+  } catch (err) {
+    const msg = (err && (err.message || err)) || String(err)
+    console.warn("[rls_auto_restock] panel module FAILED: " + msg)
+    try {
+      const data = await getComponent(PANEL, false, true)
+      const state = data && data.error ? ("error: " + data.error) : (data && data.compiled ? "compiled" : "lazy")
+      console.warn("[rls_auto_restock] getComponent fallback: " + state)
+    } catch (err2) {
+      console.warn("[rls_auto_restock] getComponent fallback FAILED: " + ((err2 && (err2.message || err2)) || String(err2)))
+    }
+  }
+}
 
 export async function onUnload() {}
