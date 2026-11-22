@@ -8,8 +8,8 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.2.5"
-local CONFIG_VERSION = 2
+local MOD_VERSION = "1.3.0"
+local CONFIG_VERSION = 3
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
 local DELIVERY_TIME_CAP = 0.5
@@ -407,6 +407,11 @@ local function loadFromSave(savePath)
   for id, config in pairs(data.settings or {}) do
     local migrated = sanitizeSettings(config)
     if fileVersion < 2 then migrated.autoCollect = true end
+    if fileVersion < 3 then
+      migrated.enabled = true
+      migrated.autoCollect = true
+      migrated.thresholdPercent = 0.25
+    end
     settings[tostring(id)] = migrated
   end
   for id, delivery in pairs(data.deliveries or {}) do
@@ -794,6 +799,20 @@ function M.cancelDelivery(businessId)
   return {success = true, message = "Delivery cancelled. Paid supply and driver fees are forfeited."}
 end
 
+function M.setAllStores(changes)
+  local properties = passiveProperties()
+  if not properties then return {success = false, message = "RLS store state is not accessible."} end
+  local changed = 0
+  for id in pairs(properties) do
+    id = tostring(id)
+    if owned(id) then
+      M.setStoreSettings(id, changes)
+      changed = changed + 1
+    end
+  end
+  return {success = changed > 0, changed = changed, message = "Applied settings to " .. changed .. " stores."}
+end
+
 function M.collectNow(businessId)
   local id = tostring(businessId)
   local properties = passiveProperties()
@@ -835,7 +854,7 @@ function M.onOverhaulActive(active)
   if active then
     onCareerReady()
   else
-    settings, deliveries, blocked = {}, {}, {}
+    dataLoaded = false
     lastSavePath = nil
     invalidateAnchor()
   end

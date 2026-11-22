@@ -5,6 +5,27 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.3.0] - 2026-11-22
+
+### Fixed
+- **Career-exit save corrupted settings**: RLS fires `onOverhaulActive(false)` on career
+  teardown, which wiped the companion's in-memory settings *before* the final career save ran —
+  persisting default state (auto-restock off, 30% thresholds) over the user's real toggles.
+  Deactivation now only marks state stale (`dataLoaded = false`); the next use reloads from the
+  career save, and `persist()` can no longer write wiped state.
+
+### Added
+- **Save migration v3**: existing stores restore auto-restock enabled at a 25% threshold (the
+  settings corrupted by the exit-save bug are repaired on next career load, no travel required).
+- **`setAllStores(changes)`** Lua API: apply settings to every owned store in one call (console/
+  MCP friendly), e.g. `rlsAutoRestock.setAllStores({enabled = true, autoCollect = true, thresholdPercent = 0.25})`.
+
+## [1.2.5] - 2026-11-22
+
+### Changed
+- The auto-collect toast now names the actual stores it swept
+  ("...from Canal Street Deli & Food Mart and Mini Mart") instead of a store count.
+
 ## [1.2.4] - 2026-11-22
 
 ### Fixed
@@ -72,7 +93,7 @@ identified.
   the panel path, try/original/fallback for everything else) and degraded `views` fields are
   sanitized to empty arrays in place. This is what makes the Auto-Restock panel mount.
 
-## [1.0.7] - 2026-11-22## [1.0.7] - 2026-11-22
+## [1.0.7] - 2026-11-22
 
 ### Fixed
 - **Root cause fixed at the data level via a VFS file override.** RLS's
