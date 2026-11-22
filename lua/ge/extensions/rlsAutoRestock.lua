@@ -8,6 +8,7 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
+local MOD_VERSION = "1.0.1"
 local CONFIG_VERSION = 1
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
@@ -723,7 +724,7 @@ function M.onOverhaulSaveCurrentProfile(currentSavePath)
 end
 
 function M.onExtensionLoaded()
-  log("I", "rlsAutoRestock", "RLS Auto-Restock companion loaded. Waiting for an RLS career session.")
+  log("I", "rlsAutoRestock", "RLS Auto-Restock companion v" .. MOD_VERSION .. " loaded. Waiting for an RLS career session.")
 end
 
 function M.onClientEndMission()

@@ -5,9 +5,10 @@ const RLS_CATALOG = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career
 const RLS_STORE = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/stores/businessComputerStore.js"
 
 const fail = err => (err && (err.message || err)) || String(err)
+const MOD_VERSION = "1.0.1"
 
 export async function onLoad() {
-  console.warn("[rls_auto_restock] UI entry point loaded")
+  console.warn("[rls_auto_restock] UI entry point loaded (v" + MOD_VERSION + ")")
   try {
     const mod = await loadModule(PANEL)
     console.warn("[rls_auto_restock] panel module ready: " + typeof (mod && mod.default))
