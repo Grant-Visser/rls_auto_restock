@@ -94,17 +94,41 @@ manifest system — no RLS files are edited):
 ## Installation
 
 1. Install **RLS Career Overhaul v2.8+** and load (or create) a career save.
-2. Drop the `rls_auto_restock` folder into your mods directory:
+2. Install this mod using **one** of these methods:
+
+   **Zip (recommended)** — drop `rls_auto_restock.zip` into your mods folder, do **not** extract it:
 
    ```
-   %LOCALAPPDATA%\BeamNG.drive\current\mods\rls_auto_restock\
+   %LOCALAPPDATA%\BeamNG.drive\current\mods\rls_auto_restock.zip
    ```
 
-   (Or download `rls_auto_restock.zip` from the Releases page and place it in
-   `%LOCALAPPDATA%\BeamNG.drive\current\mods\`.)
-3. Restart BeamNG.drive (or reload the mod list from the Mod Manager).
+   **Unpacked folder** — put the `rls_auto_restock` folder (the one containing `lua\`, `gameplay\`,
+   `scripts\`, `ui\`) into:
+
+   ```
+   %LOCALAPPDATA%\BeamNG.drive\current\mods\unpacked\rls_auto_restock\
+   ```
+
+   > ⚠️ **Layout matters.** BeamNG only mounts zips whose *content sits at the zip root*, and loose
+   > folders only from `mods\unpacked\`. A folder dropped directly into `mods\` is silently ignored —
+   > the classic symptom is that nothing appears in game and nothing logs an error.
+
+3. Restart BeamNG.drive completely (adding files while the game runs does not refresh the virtual
+   file system), or reload the mod list from the Mod Manager.
 4. In career, walk into any owned store's Business Computer and open the new **Auto-Restock** tab.
    Flip the toggle, pick a threshold and a driver tier. Done — the store restocks itself.
+
+### Verifying it loaded
+
+Open the console (`~`) and run:
+
+```lua
+FS:fileExists("/gameplay/overhaul/business/types/rls_auto_restock.json")
+extensions.rlsAutoRestock ~= nil
+```
+
+Both should return `true`. If the first is `false`, the mod is not mounted (check the install
+layout above); if the second is `false`, run `extensions.load("rlsAutoRestock")`.
 
 > The mod only acts while a career session is running. In freeroam it sits idle.
 
