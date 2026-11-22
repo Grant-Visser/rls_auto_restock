@@ -1,13 +1,98 @@
 import { loadModule } from "@/services/uiMods"
 
 const PANEL = "/ui/ui-vue/mods/rls_auto_restock/ui/AutoRestockPanel.vue"
-const RLS = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/utils/"
-const RLS_CATALOG = RLS + "businessTypeCatalog.js"
-const RLS_RUNTIME = RLS + "runtimeComponent.js"
 const RLS_SESSION = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/stores/businessComputer/businessSessionStore.js"
 
-const MOD_VERSION = "1.0.7"
+const MOD_VERSION = "1.0.8"
 const fail = err => (err && (err.message || err)) || String(err)
+
+let shimCount = 0
+let rlsRuntimeComponent = null
+
+function safeFallbackResolve(catalogInstance, name) {
+  try {
+    const types = catalogInstance.businessTypes.value || []
+    for (const type of types) {
+      const tabs = Array.isArray(type.tabs) ? type.tabs : []
+      const tab = tabs.find(t => t.componentName === name || t.component === name)
+      if (tab && tab.component) return tab.component
+      const views = Array.isArray(type.views) ? type.views : []
+      const view = views.find(v => v.id === name || v.component === name)
+      if (view && view.component) return view.component
+    }
+  } catch (err) {
+    console.warn("[rls_auto_restock] safe fallback resolve failed: " + fail(err))
+  }
+  return null
+}
+
+function patchCatalogModule(mod) {
+  if (!mod || mod.__rlsAutoRestockPatched) return false
+  try {
+    if (typeof mod.getBusinessTabComponent !== "function") return false
+    const original = mod.getBusinessTabComponent
+    mod.getBusinessTabComponent = name => {
+      if (name === PANEL) {
+        console.warn("[rls_auto_restock] direct resolution for panel")
+        return rlsRuntimeComponent ? rlsRuntimeComponent(PANEL) : null
+      }
+      try {
+        return original(name)
+      } catch (err) {
+        console.warn("[rls_auto_restock] resolver shim engaged for " + JSON.stringify(name) + ": " + fail(err))
+        const file = safeFallbackResolve(mod, name)
+        return file && rlsRuntimeComponent ? rlsRuntimeComponent(file) : null
+      }
+    }
+    mod.__rlsAutoRestockPatched = true
+    shimCount++
+    console.warn("[rls_auto_restock] resolver shim #" + shimCount + " installed on a live catalog instance")
+    return true
+  } catch (err) {
+    console.warn("[rls_auto_restock] shim install failed: " + fail(err))
+    return false
+  }
+}
+
+function sanitizeCatalogData(mod) {
+  try {
+    const value = mod.businessTypes && mod.businessTypes.value
+    if (!Array.isArray(value)) return
+    let fixed = 0
+    for (const type of value) {
+      if (type && type.views !== undefined && !Array.isArray(type.views)) {
+        type.views = []
+        fixed++
+      }
+    }
+    if (fixed) console.warn("[rls_auto_restock] sanitized " + fixed + " degraded views field(s) in a live catalog instance")
+  } catch (err) {
+    console.warn("[rls_auto_restock] sanitize pass failed: " + fail(err))
+  }
+}
+
+function collectModuleCache() {
+  const cache = (typeof window !== "undefined" && window.__rtModules) || null
+  if (!cache) return []
+  const result = []
+  if (typeof cache.forEach === "function") {
+    cache.forEach(value => result.push(value))
+  } else {
+    for (const key of Object.keys(cache)) result.push(cache[key])
+  }
+  return result
+}
+
+function scanAndPatch() {
+  const modules = collectModuleCache()
+  for (const entry of modules) {
+    const mod = entry && (entry.exports || entry)
+    if (mod && typeof mod.getBusinessTabComponent === "function" && mod.businessTypes) {
+      patchCatalogModule(mod)
+      sanitizeCatalogData(mod)
+    }
+  }
+}
 
 export async function onLoad() {
   console.warn("[rls_auto_restock] UI entry point loaded (v" + MOD_VERSION + ")")
@@ -20,46 +105,16 @@ export async function onLoad() {
   }
 
   try {
-    const catalog = await import(RLS_CATALOG)
-    const { runtimeComponent } = await import(RLS_RUNTIME)
-
-    if (typeof catalog.getBusinessTabComponent !== "function") {
-      console.warn("[rls_auto_restock] resolver shim skipped: RLS catalog shape unexpected")
-    } else if (!catalog.__rlsAutoRestockShimmed) {
-      const original = catalog.getBusinessTabComponent
-      catalog.getBusinessTabComponent = name => {
-        if (name === PANEL) {
-          console.warn("[rls_auto_restock] direct resolution for panel")
-          return runtimeComponent(PANEL)
-        }
-        try {
-          return original(name)
-        } catch (err) {
-          console.warn("[rls_auto_restock] resolver shim engaged for " + JSON.stringify(name) + ": " + fail(err))
-          let file = null
-          for (const type of catalog.businessTypes.value || []) {
-            const tabs = Array.isArray(type.tabs) ? type.tabs : []
-            const tab = tabs.find(t => t.componentName === name || t.component === name)
-            const views = Array.isArray(type.views) ? type.views : []
-            const view = views.find(v => v.id === name || v.component === name)
-            file = (tab && tab.component) || (view && view.component)
-            if (file) break
-          }
-          return file ? runtimeComponent(file) : null
-        }
-      }
-      catalog.__rlsAutoRestockShimmed = true
-      console.warn("[rls_auto_restock] resolver shim installed")
-    }
-
-    if (typeof runtimeComponent === "function" && !catalog.__rlsAutoRestockRtLogged) {
-      const rt = runtimeComponent(PANEL)
-      console.warn("[rls_auto_restock] runtimeComponent(PANEL) returned: " + (rt ? "component" : "falsy"))
-      catalog.__rlsAutoRestockRtLogged = true
-    }
+    const catalog = await import("/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/utils/businessTypeCatalog.js")
+    const runtime = await import("/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/utils/runtimeComponent.js")
+    rlsRuntimeComponent = runtime.runtimeComponent
+    patchCatalogModule(catalog)
+    sanitizeCatalogData(catalog)
   } catch (err) {
-    console.warn("[rls_auto_restock] resolver shim FAILED: " + fail(err))
+    console.warn("[rls_auto_restock] catalog patch failed: " + fail(err))
   }
+
+  setInterval(scanAndPatch, 3000)
 
   try {
     const sessionMod = await import(RLS_SESSION)
