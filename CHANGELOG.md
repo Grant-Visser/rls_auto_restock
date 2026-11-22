@@ -5,7 +5,18 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
-## [1.0.1] — 2026-11-22
+## [1.0.2] - 2026-11-22
+
+### Fixed
+- **Auto-Restock tab rendered empty.** RLS's `getBusinessTabComponent` iterates the business-type
+  catalog and calls `.find()` on every type's `views` field. `tuningShop.json` ships
+  `"views": []` (empty array), which the Lua-to-UI JSON round-trip delivers as an empty *object*
+  (`{}`), and `({}).find` is not a function - so component resolution throws for any tab name
+  that does not match an earlier catalog entry. Companion workaround: the manifest now sorts
+  first (`order: 0`), so the resolver matches the Auto-Restock component on the first catalog
+  entry and returns before the degraded `views` field is ever touched.
+
+## [1.0.1]— 2026-11-22
 
 ### Fixed
 - **Business-type manifest rejected by RLS's catalog** (blank: the Auto-Restock tab never

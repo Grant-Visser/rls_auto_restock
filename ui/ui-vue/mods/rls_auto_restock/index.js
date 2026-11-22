@@ -5,7 +5,7 @@ const RLS_CATALOG = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career
 const RLS_STORE = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/stores/businessComputerStore.js"
 
 const fail = err => (err && (err.message || err)) || String(err)
-const MOD_VERSION = "1.0.1"
+const MOD_VERSION = "1.0.2"
 
 export async function onLoad() {
   console.warn("[rls_auto_restock] UI entry point loaded (v" + MOD_VERSION + ")")
@@ -28,6 +28,10 @@ export async function onLoad() {
       } else {
         console.warn("[rls_auto_restock] my entry keys: " + Object.keys(mine).join(", "))
         console.warn("[rls_auto_restock] my tabs json: " + JSON.stringify(mine.tabs))
+      }
+      for (const t of list) {
+        console.warn("[rls_auto_restock] type " + t.id + " views=" + JSON.stringify(t.views ?? null)
+          + " isArray=" + Array.isArray(t.views))
       }
       const comp = catalog.getBusinessTabComponent(PANEL)
       console.warn("[rls_auto_restock] resolver output: " + (comp ? "component object" : "NULL"))
