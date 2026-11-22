@@ -6,7 +6,7 @@ const RLS_CATALOG = RLS + "businessTypeCatalog.js"
 const RLS_RUNTIME = RLS + "runtimeComponent.js"
 const RLS_SESSION = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/stores/businessComputer/businessSessionStore.js"
 
-const MOD_VERSION = "1.0.5"
+const MOD_VERSION = "1.0.6"
 const fail = err => (err && (err.message || err)) || String(err)
 
 export async function onLoad() {
@@ -28,6 +28,10 @@ export async function onLoad() {
     } else if (!catalog.__rlsAutoRestockShimmed) {
       const original = catalog.getBusinessTabComponent
       catalog.getBusinessTabComponent = name => {
+        if (name === PANEL) {
+          console.warn("[rls_auto_restock] direct resolution for panel")
+          return runtimeComponent(PANEL)
+        }
         try {
           return original(name)
         } catch (err) {
@@ -46,6 +50,12 @@ export async function onLoad() {
       }
       catalog.__rlsAutoRestockShimmed = true
       console.warn("[rls_auto_restock] resolver shim installed")
+    }
+
+    if (typeof runtimeComponent === "function" && !catalog.__rlsAutoRestockRtLogged) {
+      const rt = runtimeComponent(PANEL)
+      console.warn("[rls_auto_restock] runtimeComponent(PANEL) returned: " + (rt ? "component" : "falsy"))
+      catalog.__rlsAutoRestockRtLogged = true
     }
   } catch (err) {
     console.warn("[rls_auto_restock] resolver shim FAILED: " + fail(err))
