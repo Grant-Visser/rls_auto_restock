@@ -48,6 +48,10 @@ Everything that cost us a debugging session, distilled. Versions: RLS v2.8.0, Be
 
 ## Process side
 
+- **The career-exit save runs AFTER `onOverhaulActive(false)` fires.** If a hook handler wipes
+  its module state on deactivation, the final career save will persist that wiped state and
+  corrupt the save slot. Mark state stale (`dataLoaded = false`) instead of clearing tables, so
+  the next use lazily reloads from the career save.
 - **Zip mods are not watched**: replace-with-zip while running = "mod vanished" + stale mounts.
   Unpacked installs hot-reload from the file system.
 - **Every `UiModsChanged` unloads mod directories from the runtime graph** — styles vanish,
