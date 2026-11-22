@@ -149,6 +149,23 @@ rls_auto_restock/
 - The mod never takes revenue — it only pays suppliers and drivers. Money leaves the wallet via
   RLS's normal payment pipeline (visible in the wallet history).
 
+## Cost to make
+
+This entire mod — code, UI, manifests, README and publishing — was built in a single AI coding session:
+
+![Context usage while building this mod: 204,328 tokens, 19% used, $0.33 spent](docs/cost-to-make.svg)
+
+**204,328 tokens · 19% of the session context · $0.33 spent.** No manual coding was done by hand;
+the whole companion mod was specified, built, verified and published for less than the price of a
+gumball. (If you want to swap in your own screenshot, replace `docs/cost-to-make.svg`.)
+
+## Thanks
+
+Huge thanks to **[AR12Gaming](https://www.youtube.com/ar12gaming)** — his BeamNG career playthroughs
+are what make mods like RLS Career Overhaul worth building for, and this companion mod exists to
+make that series-style gameplay even smoother. Go check out his channel for BeamNG career content,
+mod spotlights and more: **https://www.youtube.com/ar12gaming**
+
 ## License
 
 MIT — see [LICENSE](LICENSE). RLS Career Overhaul is a separate mod by its respective author(s);
