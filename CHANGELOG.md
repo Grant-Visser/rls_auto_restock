@@ -5,6 +5,13 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.2.4] - 2026-11-22
+
+### Fixed
+- **v1.2.3 shipped the same ordering bug it claimed to fix**: the `ensureLoaded`/`currentSavePath`
+  forward declarations were placed after `settingsFor`, so the global-nil error continued. The
+  declarations now sit before every caller.
+
 ## [1.2.3] - 2026-11-22
 
 ### Fixed

@@ -8,7 +8,7 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.2.3"
+local MOD_VERSION = "1.2.4"
 local CONFIG_VERSION = 2
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
@@ -107,6 +107,8 @@ local function sanitizeSettings(raw)
 end
 
 local settingsFor
+local currentSavePath
+local ensureLoaded
 
 function settingsFor(businessId)
   ensureLoaded()
@@ -118,9 +120,6 @@ function settingsFor(businessId)
 end
 
 -- RLS access --------------------------------------------------------------------------------------
-
-local currentSavePath
-local ensureLoaded
 
 -- RLS keeps store state in a module-local table. We hold a live anchor (the function that closes
 -- over it plus the upvalue index) because loadData() replaces the table on every career load.
