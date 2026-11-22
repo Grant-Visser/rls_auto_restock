@@ -5,7 +5,24 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
-## [1.0.7] - 2026-11-22
+## [1.0.9] - 2026-11-22
+
+### Fixed
+- `getStoreData` is fail-safe: any Lua-side error is caught, logged with its message, and returned
+  as an error payload instead of breaking the UI bridge call. The first call per session is logged
+  so a silent bridge failure is distinguishable from a Lua error.
+
+## [1.0.8] - 2026-11-22
+
+### Changed
+- Reverted the v1.0.7 `tuningShop.json` override: VFS mount priority kept RLS's zip file winning,
+  so the override never applied.
+- The UI entry point now scans the runtime module cache every 3 seconds and patches every live
+  business-type catalog instance: `getBusinessTabComponent` gets a safe wrapper (direct hit for
+  the panel path, try/original/fallback for everything else) and degraded `views` fields are
+  sanitized to empty arrays in place. This is what makes the Auto-Restock panel mount.
+
+## [1.0.7] - 2026-11-22## [1.0.7] - 2026-11-22
 
 ### Fixed
 - **Root cause fixed at the data level via a VFS file override.** RLS's

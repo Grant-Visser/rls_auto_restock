@@ -8,7 +8,7 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.0.8"
+local MOD_VERSION = "1.0.9"
 local CONFIG_VERSION = 1
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
@@ -615,8 +615,19 @@ end
 
 -- Public API --------------------------------------------------------------------------------------
 
+local loggedFirstGet = false
+
 function M.getStoreData(businessId)
-  return buildStoreView(businessId)
+  if not loggedFirstGet then
+    loggedFirstGet = true
+    log("I", "rlsAutoRestock", "getStoreData first call received (Lua v" .. MOD_VERSION .. ")")
+  end
+  local ok, result = pcall(buildStoreView, businessId)
+  if not ok then
+    log("E", "rlsAutoRestock", "getStoreData failed: " .. tostring(result))
+    return {success = false, compatible = not anchorFailed, error = tostring(result)}
+  end
+  return result
 end
 
 function M.getAllStores()

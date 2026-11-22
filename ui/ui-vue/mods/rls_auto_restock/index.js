@@ -3,7 +3,7 @@ import { loadModule } from "@/services/uiMods"
 const PANEL = "/ui/ui-vue/mods/rls_auto_restock/ui/AutoRestockPanel.vue"
 const RLS_SESSION = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/stores/businessComputer/businessSessionStore.js"
 
-const MOD_VERSION = "1.0.8"
+const MOD_VERSION = "1.0.9"
 const fail = err => (err && (err.message || err)) || String(err)
 
 let shimCount = 0
