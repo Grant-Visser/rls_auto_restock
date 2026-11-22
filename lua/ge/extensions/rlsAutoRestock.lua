@@ -8,8 +8,8 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.2.1"
-local CONFIG_VERSION = 1
+local MOD_VERSION = "1.2.2"
+local CONFIG_VERSION = 2
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
 local DELIVERY_TIME_CAP = 0.5
@@ -26,7 +26,7 @@ local DEFAULT_SETTINGS = {
   thresholdPercent = 0.30,
   targetFillPercent = 1.0,
   driverTier = "standard",
-  autoCollect = false,
+  autoCollect = true,
 }
 
 local TIERS = {
@@ -421,8 +421,11 @@ local function loadFromSave(savePath)
   if not savePath then return end
   local data = jsonReadFile(saveFilePath(savePath))
   if type(data) ~= "table" then return end
+  local fileVersion = tonumber(data.version) or 1
   for id, config in pairs(data.settings or {}) do
-    settings[tostring(id)] = sanitizeSettings(config)
+    local migrated = sanitizeSettings(config)
+    if fileVersion < 2 then migrated.autoCollect = true end
+    settings[tostring(id)] = migrated
   end
   for id, delivery in pairs(data.deliveries or {}) do
     local sanitized = sanitizeDelivery(delivery)

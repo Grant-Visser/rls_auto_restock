@@ -5,6 +5,21 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.2.2] - 2026-11-22
+
+### Changed
+- **Auto-collect defaults to ON** for new stores, and saves written before v1.2.0 migrate once
+  (save `CONFIG_VERSION` 1 → 2) so existing stores get auto-collect without visiting them.
+  Per-store opt-out from the panel still persists.
+
+## [1.2.1] - 2026-11-22
+
+### Fixed
+- BeamNG hot-reloads GE extensions when their source file changes, which reset the companion's
+  in-memory settings (auto-collect and auto-restock toggles appeared to switch themselves off).
+  Settings are now lazily reloaded from the career save on first use after any reload, and
+  `persist()` is guarded so empty state can never overwrite saved settings.
+
 ## [1.2.0] - 2026-11-22
 
 ### Added
