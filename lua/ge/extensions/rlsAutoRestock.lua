@@ -8,12 +8,13 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.1.0"
+local MOD_VERSION = "1.2.0"
 local CONFIG_VERSION = 1
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
 local DELIVERY_TIME_CAP = 0.5
 local DISTANCE_FEE_PER_METRE = 0.03
+local COLLECT_COOLDOWN_SECONDS = 30
 local SUPPLY_FEE_LABEL = "Auto-restock driver order"
 local ARCHETYPE_FILE = "gameplay/overhaul/business/passiveBusinessArchetypes.json"
 local SAVE_FILE = "rlsAutoRestock.json"
@@ -25,6 +26,7 @@ local DEFAULT_SETTINGS = {
   thresholdPercent = 0.30,
   targetFillPercent = 1.0,
   driverTier = "standard",
+  autoCollect = false,
 }
 
 local TIERS = {
@@ -40,6 +42,7 @@ local blocked = {}
 local archetypeFallback = nil
 local anchor = nil
 local anchorFailed = false
+local lastCollect = {}
 local lastSavePath = nil
 local updateAccumulator = 0
 
@@ -98,6 +101,7 @@ local function sanitizeSettings(raw)
     thresholdPercent = math.min(0.95, math.max(0.05, threshold or DEFAULT_SETTINGS.thresholdPercent)),
     targetFillPercent = math.min(1.0, math.max(0.1, fill or DEFAULT_SETTINGS.targetFillPercent)),
     driverTier = validTier(raw.driverTier),
+    autoCollect = raw.autoCollect == true,
   }
 end
 
@@ -329,13 +333,17 @@ end
 
 -- Finance records ---------------------------------------------------------------------------------
 
-local function recordStoreFinance(state, amount, quantity)
+local function recordStoreFinance(state, amount, quantity, kind)
   amount = moneyRounded(amount)
+  kind = kind or "order"
   state.financeHistory = type(state.financeHistory) == "table" and state.financeHistory or {}
-  table.insert(state.financeHistory, {t = os.time(), kind = "order", amount = amount, qty = quantity, autoRestock = true})
+  local row = {t = os.time(), kind = kind, amount = amount, qty = quantity}
+  if kind == "order" then row.autoRestock = true end
+  table.insert(state.financeHistory, row)
   while #state.financeHistory > HISTORY_LIMIT do table.remove(state.financeHistory, 1) end
   local totals = type(state.financeTotals) == "table" and state.financeTotals or {}
-  totals.supplies = math.max(0, math.floor((tonumber(totals.supplies) or 0) + amount))
+  local key = kind == "collect" and "collected" or "supplies"
+  totals[key] = math.max(0, math.floor((tonumber(totals[key]) or 0) + amount))
   state.financeTotals = totals
 end
 
@@ -449,6 +457,7 @@ local function buildStoreView(businessId)
     capacity = capacityFor(state, archetype) or 0,
     operating = state.operating ~= false,
     wholesaleOwned = state.wholesaleOwned == true,
+    pendingEarnings = math.max(0, math.floor((tonumber(state.uncollectedEarnings) or 0) + 0.5)),
     cycleSeconds = tonumber(archetype and archetype.cycleSeconds) or 0,
     sellsOutInSeconds = timeUntilEmpty(state, archetype),
     onCurrentMap = state.mapId == getCurrentLevelIdentifier(),
@@ -562,7 +571,54 @@ end
 
 -- Update loop -------------------------------------------------------------------------------------
 
+local function collectEarningsRemote(state, businessId, amount, archetype)
+  local payment = getExt("overhaul_career_economy_payment")
+  if not payment or type(payment.reward) ~= "function" then return false end
+  local name = facilityName(businessId, archetype)
+  local ok, result = pcall(payment.reward, {money = {amount = amount}}, {category = "business", label = "Auto-collected " .. name .. " earnings"}, true)
+  if not ok or result == false then
+    log("W", "rlsAutoRestock", "Auto-collect payment failed for " .. tostring(businessId))
+    return false
+  end
+  state.uncollectedEarnings = 0
+  recordStoreFinance(state, amount, nil, "collect")
+  return true
+end
+
+local function autoCollectTick(now)
+  local properties = passiveProperties()
+  if not properties then return 0, 0 end
+  local totalCollected, storesTouched = 0, 0
+  for id, state in pairs(properties) do
+    id = tostring(id)
+    if type(state) == "table" and owned(id) then
+      local config = settingsFor(id)
+      if config.autoCollect then
+        local pending = math.max(0, math.floor((tonumber(state.uncollectedEarnings) or 0) + 0.5))
+        local last = lastCollect[id] or 0
+        if pending > 0 and now - last >= COLLECT_COOLDOWN_SECONDS then
+          if collectEarningsRemote(state, id, pending, archetypeFor(state)) then
+            lastCollect[id] = now
+            totalCollected = totalCollected + pending
+            storesTouched = storesTouched + 1
+            pushStore(id)
+          end
+        end
+      end
+    end
+  end
+  return totalCollected, storesTouched
+end
+
 local function updateStores(elapsed)
+  local now = os.time()
+  local collectedTotal, collectedStores = autoCollectTick(now)
+  if collectedStores > 0 then
+    persist()
+    saveCareer()
+    notify("success", "Earnings auto-collected",
+      string.format("$%s from %d store%s was added to the wallet.", tostring(moneyRounded(collectedTotal)), collectedStores, collectedStores == 1 and "" or "s"))
+  end
   local properties = passiveProperties()
   if not properties then return end
   for id, delivery in pairs(deliveries) do
@@ -647,6 +703,7 @@ function M.setStoreSettings(businessId, changes)
   local config = settingsFor(id)
   if type(changes) == "table" then
     if changes.enabled ~= nil then config.enabled = changes.enabled == true end
+    if changes.autoCollect ~= nil then config.autoCollect = changes.autoCollect == true end
     if changes.thresholdPercent ~= nil then config.thresholdPercent = tonumber(changes.thresholdPercent) end
     if changes.targetFillPercent ~= nil then config.targetFillPercent = tonumber(changes.targetFillPercent) end
     if changes.driverTier ~= nil then config.driverTier = changes.driverTier end
@@ -698,6 +755,29 @@ function M.cancelDelivery(businessId)
   persist()
   pushStore(id)
   return {success = true, message = "Delivery cancelled. Paid supply and driver fees are forfeited."}
+end
+
+function M.collectNow(businessId)
+  local id = tostring(businessId)
+  local properties = passiveProperties()
+  local state = properties and properties[id] or nil
+  if not state or not owned(id) then
+    return {success = false, message = "This store is unavailable for auto-collect."}
+  end
+  local pending = math.max(0, math.floor((tonumber(state.uncollectedEarnings) or 0) + 0.5))
+  if pending <= 0 then
+    return {success = false, message = "There are no earnings to collect.", store = buildStoreView(id)}
+  end
+  if not collectEarningsRemote(state, id, pending, archetypeFor(state)) then
+    return {success = false, message = "The wallet deposit failed.", store = buildStoreView(id)}
+  end
+  lastCollect[id] = os.time()
+  persist()
+  saveCareer()
+  local view = buildStoreView(id)
+  view.message = string.format("Collected $%d from %s.", pending, view.businessName or "the store")
+  pushStore(id)
+  return view
 end
 
 -- Game hooks --------------------------------------------------------------------------------------

@@ -5,6 +5,16 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.2.0] - 2026-11-22
+
+### Added
+- **Auto-collect earnings**: per-store toggle on the Auto-Restock panel sweeps pending earnings
+  into the wallet every 30s of active career play (cross-map — RLS accrues earnings on all
+  maps), plus a manual "Collect now" button. Aggregated toast per sweep, wallet label
+  ("Auto-collected <store> earnings") deliberately distinct from manual collections so RLS's
+  finance backfill cannot double-count, and per-store finance history rows that render natively
+  in the Finances tab. New setting `autoCollect` persists in the career save.
+
 ## [1.1.0] - 2026-11-22
 
 ### Fixed

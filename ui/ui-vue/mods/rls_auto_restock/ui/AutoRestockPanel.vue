@@ -138,6 +138,34 @@
         </div>
       </section>
 
+      <section class="panel">
+        <header class="row-head">
+          <span class="kicker">Earnings</span>
+          <span class="note">{{ store.pendingEarnings > 0 ? 'Awaiting collection' : 'Everything collected' }}</span>
+        </header>
+        <div class="stock-line">
+          <strong class="value money"><BngIcon class="cur" :type="icons.beamCurrency" />{{ money(store.pendingEarnings) }}</strong>
+          <button
+            type="button"
+            class="ar-btn primary"
+            :disabled="busy || !(store.pendingEarnings > 0)"
+            @click="collectNow">
+            Collect now
+          </button>
+        </div>
+        <div class="toggle-row">
+          <button
+            type="button"
+            :class="['ar-switch', { on: store.settings.autoCollect }]"
+            :disabled="busy"
+            @click="setAutoCollect(!store.settings.autoCollect)">
+            <span class="ar-knob"></span>
+            <span class="ar-switch-label">{{ store.settings.autoCollect ? 'Auto-collect on' : 'Auto-collect off' }}</span>
+          </button>
+          <span class="note">{{ store.settings.autoCollect ? 'Wallet deposits every 30s of active play.' : 'Enable to sweep earnings into the wallet automatically.' }}</span>
+        </div>
+      </section>
+
       <section v-if="hasDelivery" class="panel transit">
         <header class="row-head">
           <span class="kicker">Delivery in transit</span>
@@ -156,7 +184,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useEvents } from '@/services/events'
 import { BngIcon, icons } from '@/common/components/base'
 
-console.warn("[rls_auto_restock] panel setup running (v1.1.0)")
+console.warn("[rls_auto_restock] panel setup running (v1.2.0)")
 
 const props = defineProps({ data: Object })
 
@@ -320,6 +348,24 @@ async function dispatchNow() {
   if (result) {
     messageError.value = result.success === false
     message.value = result.message || ''
+    if (result.store) store.value = result.store
+  }
+}
+
+async function setAutoCollect(value) {
+  const result = await call('setStoreSettings', props.data?.businessId, { autoCollect: value })
+  if (result) {
+    store.value = result
+    message.value = value ? 'Auto-collect enabled. Pending earnings sweep into the wallet every 30s.' : 'Auto-collect disabled.'
+    messageError.value = false
+  }
+}
+
+async function collectNow() {
+  const result = await call('collectNow', props.data?.businessId)
+  if (result) {
+    messageError.value = result.success === false
+    message.value = result.message || (result.success ? 'Earnings collected.' : '')
     if (result.store) store.value = result.store
   }
 }
