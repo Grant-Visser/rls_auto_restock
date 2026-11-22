@@ -1,0 +1,19 @@
+# OS junk
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temp / backup files
+temp/
+tmp/
+*.bak
+*.backup
+*~
+*.swp
+*.tmp
+
+# Editor / tooling
+.vscode/
+.idea/
+*.sublime-*
+node_modules/

@@ -1,0 +1,17 @@
+{
+  "id": "rls_auto_restock",
+  "order": 90,
+  "businessType": "passiveBusiness",
+  "namespace": "rls-auto-restock",
+  "tabs": [
+    {
+      "id": "rls-auto-restock-panel",
+      "label": "Auto-Restock",
+      "icon": "<path d=\"M1 3h15v13H1z\"/><path d=\"M16 8h4l3 3v5h-7z\"/><circle cx=\"5.5\" cy=\"18\" r=\"2\"/><circle cx=\"18.5\" cy=\"18\" r=\"2\"/>",
+      "component": "/ui/ui-vue/mods/rls_auto_restock/ui/AutoRestockPanel.vue",
+      "order": 5,
+      "section": "BUSINESS",
+      "entry": true
+    }
+  ]
+}
