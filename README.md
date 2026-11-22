@@ -2,6 +2,14 @@
 
 **Autonomous virtual delivery drivers for [RLS Career Overhaul](https://www.patreon.com/rlsmodding) passive businesses in BeamNG.drive.**
 
+> ## ⚠️ Beta
+> This mod is still in **BETA**. It has been battle-tested on one career (v1.3.0, BeamNG 0.40.x,
+> RLS v2.8.0), but RLS Career Overhaul is a huge, fast-moving mod and edge cases will surface.
+> If you uncover an issue — a broken panel, a mis-firing delivery, a save hiccup — please
+> [report it](https://github.com/Grant-Visser/rls_auto_restock/issues) for a patch. Even better:
+> submit a **pull request**. The [skills library](docs/skills/README.md) documents the whole
+> integration, so PRs are easier than they look.
+
 Stop driving every supply run yourself. Enable Auto-Restock on a store and a simulated virtual
 driver keeps it stocked in the background — for a transparent payroll/dispatch fee on top of the
 wholesale supply cost. Deliveries are always timed to arrive well before the store runs dry, so
