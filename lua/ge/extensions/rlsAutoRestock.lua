@@ -8,7 +8,7 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.0.3"
+local MOD_VERSION = "1.0.4"
 local CONFIG_VERSION = 1
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
