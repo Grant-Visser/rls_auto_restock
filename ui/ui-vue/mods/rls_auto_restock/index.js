@@ -6,7 +6,7 @@ const RLS_CATALOG = RLS + "businessTypeCatalog.js"
 const RLS_RUNTIME = RLS + "runtimeComponent.js"
 const RLS_SESSION = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/stores/businessComputer/businessSessionStore.js"
 
-const MOD_VERSION = "1.0.6"
+const MOD_VERSION = "1.0.7"
 const fail = err => (err && (err.message || err)) || String(err)
 
 export async function onLoad() {

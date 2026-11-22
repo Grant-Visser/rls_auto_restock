@@ -5,6 +5,27 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.0.7] - 2026-11-22
+
+### Fixed
+- **Root cause fixed at the data level via a VFS file override.** RLS's
+  `gameplay/overhaul/business/types/tuningShop.json` ships `"views": []` - an empty JSON array,
+  which the Lua-to-UI JSON round-trip delivers as an empty *object* and breaks
+  `getBusinessTabComponent` (`.find` is not a function) for every tab whose component does not
+  match an earlier catalog entry. The companion now ships an override copy of that manifest with
+  the empty `views` key removed. Unpacked mods take priority over zips in BeamNG's virtual file
+  system, so RLS's own tuning shop and every add-on tab resolve cleanly again. The previous
+  resolver shim remains as a safety net for future RLS regressions.
+- Note for RLS updates: if rls_career_overhaul v2.9+ fixes the manifest, delete
+  `gameplay/overhaul/business/types/tuningShop.json` from this mod so RLS's newer file is used.
+
+## [1.0.6] - 2026-11-22
+
+### Changed
+- The resolver shim now short-circuits the Auto-Restock component path directly and logs every
+  click-time resolution outcome.
+- Session probe reads RLS's `businessSessionStore` (correct store).
+
 ## [1.0.5] - 2026-11-22
 
 ### Fixed

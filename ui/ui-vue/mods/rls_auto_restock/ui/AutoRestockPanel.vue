@@ -157,7 +157,7 @@ import { lua } from '@/bridge'
 import { useEvents } from '@/services/events'
 import { BngIcon, icons } from '@/common/components/base'
 
-console.warn("[rls_auto_restock] panel setup running (v1.0.5)")
+console.warn("[rls_auto_restock] panel setup running (v1.0.7)")
 
 const props = defineProps({ data: Object })
 
