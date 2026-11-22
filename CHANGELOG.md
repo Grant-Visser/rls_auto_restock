@@ -5,6 +5,15 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.0.5] - 2026-11-22
+
+### Fixed
+- **Blank tab made structurally impossible:** the UI entry point now installs a resolver shim on
+  RLS's `getBusinessTabComponent`. The original throws when it reaches a type whose `views`
+  field degraded to `{}` through the Lua round-trip (tuningShop ships an empty array); the shim
+  falls back to a type-safe lookup (array checks) that returns the correct component. Applied
+  on the shared module exports, so RLS's own business tabs benefit from the fallback too.
+
 ## [1.0.4] - 2026-11-22
 
 ### Added
