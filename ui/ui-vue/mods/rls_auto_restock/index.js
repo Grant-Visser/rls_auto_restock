@@ -34,15 +34,26 @@ export async function onLoad() {
       console.warn("[rls_auto_restock] catalog probe failed: " + fail(err))
     }
 
-    try {
-      const mod = await import(RLS_STORE)
-      const store = mod.useBusinessComputerStore()
-      const tabs = store.registeredTabs || []
-      console.warn("[rls_auto_restock] session activeView: " + JSON.stringify(store.activeView))
-      console.warn("[rls_auto_restock] session tabs: " + tabs.map(t => (t.id || "?") + "|" + (t.component || "?")).join(" ; "))
-    } catch (err) {
-      console.warn("[rls_auto_restock] session store probe failed: " + fail(err))
-    }
+    let ticks = 0
+    const timer = setInterval(async () => {
+      ticks++
+      if (ticks > 120) { clearInterval(timer); return }
+      try {
+        const mod = await import(RLS_STORE)
+        const store = mod.useBusinessComputerStore()
+        if (!store || !store.businessId) return
+        const tabs = store.registeredTabs || []
+        const active = tabs.find(t => t.id === store.activeView) || null
+        console.warn("[rls_auto_restock] session: businessId=" + store.businessId
+          + " activeView=" + JSON.stringify(store.activeView)
+          + " tabs=" + tabs.map(t => (t.id || "?") + "|" + (t.component || "?")).join(" ; ")
+          + " activeTab=" + (active ? JSON.stringify({ id: active.id, component: active.component }) : "none"))
+        clearInterval(timer)
+      } catch (err) {
+        console.warn("[rls_auto_restock] session store probe failed: " + fail(err))
+        clearInterval(timer)
+      }
+    }, 5000)
   }, 6000)
 }
 
