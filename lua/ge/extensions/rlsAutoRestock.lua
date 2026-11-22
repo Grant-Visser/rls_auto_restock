@@ -8,7 +8,7 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.2.2"
+local MOD_VERSION = "1.2.3"
 local CONFIG_VERSION = 2
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
@@ -119,25 +119,8 @@ end
 
 -- RLS access --------------------------------------------------------------------------------------
 
-local function currentSavePath()
-  local saveSystem = getExt("overhaul_career_saveSystem")
-  if saveSystem and type(saveSystem.getCurrentProfile) == "function" then
-    local ok, _, path = pcall(saveSystem.getCurrentProfile)
-    if ok then return path end
-  end
-  return nil
-end
-
--- BeamNG hot-reloads GE extensions when their source file changes; that resets module state.
--- Reload persisted settings the first time anything asks for them after a reload.
-local function ensureLoaded()
-  if dataLoaded then return end
-  dataLoaded = true
-  loadArchetypeConfig()
-  invalidateAnchor()
-  loadFromSave(currentSavePath())
-  updateAccumulator = 0
-end
+local currentSavePath
+local ensureLoaded
 
 -- RLS keeps store state in a module-local table. We hold a live anchor (the function that closes
 -- over it plus the upvalue index) because loadData() replaces the table on every career load.
@@ -431,6 +414,26 @@ local function loadFromSave(savePath)
     local sanitized = sanitizeDelivery(delivery)
     if sanitized then deliveries[tostring(id)] = sanitized end
   end
+end
+
+currentSavePath = function()
+  local saveSystem = getExt("overhaul_career_saveSystem")
+  if saveSystem and type(saveSystem.getCurrentProfile) == "function" then
+    local ok, _, path = pcall(saveSystem.getCurrentProfile)
+    if ok then return path end
+  end
+  return nil
+end
+
+-- BeamNG hot-reloads GE extensions when their source file changes; that resets module state.
+-- Reload persisted settings the first time anything asks for them after a reload.
+ensureLoaded = function()
+  if dataLoaded then return end
+  dataLoaded = true
+  loadArchetypeConfig()
+  invalidateAnchor()
+  loadFromSave(currentSavePath())
+  updateAccumulator = 0
 end
 
 -- Store views -------------------------------------------------------------------------------------

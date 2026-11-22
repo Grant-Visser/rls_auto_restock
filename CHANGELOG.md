@@ -5,6 +5,14 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.2.3] - 2026-11-22
+
+### Fixed
+- **Hot-reload settings regression**: `ensureLoaded` was referenced before its definition, so
+  every `settingsFor` call after a hot-reload threw `attempt to call global 'ensureLoaded'`
+  every second and settings self-heal never ran. Forward declarations now order the loader
+  correctly (`ensureLoaded` is assigned after `loadFromSave`).
+
 ## [1.2.2] - 2026-11-22
 
 ### Changed
