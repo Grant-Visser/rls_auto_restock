@@ -5,6 +5,14 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.0.3] - 2026-11-22
+
+### Added
+- `rlsAutoRestock.reloadUI()` Lua helper: triggers the UI's `UiModsChanged` hot reload, so
+  `.vue`/manifest changes refresh without a game restart.
+- README "Fast iteration" section documenting the unpacked-mod hot-reload workflow
+  (`mods\unpacked\` + `UiModsChanged` + extension unload/load).
+
 ## [1.0.2] - 2026-11-22
 
 ### Fixed

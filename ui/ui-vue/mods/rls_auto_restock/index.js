@@ -5,7 +5,7 @@ const RLS_CATALOG = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career
 const RLS_STORE = "/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/stores/businessComputerStore.js"
 
 const fail = err => (err && (err.message || err)) || String(err)
-const MOD_VERSION = "1.0.2"
+const MOD_VERSION = "1.0.3"
 
 export async function onLoad() {
   console.warn("[rls_auto_restock] UI entry point loaded (v" + MOD_VERSION + ")")

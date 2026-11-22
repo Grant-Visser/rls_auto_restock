@@ -158,6 +158,33 @@ rls_auto_restock/
   streamed by BeamNG's official `ui/ui-vue/mods/` runtime loader and talks to the Lua bridge
   (`lua.rlsAutoRestock.*`) plus a `RlsAutoRestockStore` push event.
 
+## Fast iteration (development, no game restarts)
+
+Zips are only mounted at game start and are not watched. For iterating on the mod, install it
+**unpacked** (one last restart to switch) and use hot reloads afterwards:
+
+1. One-time switch: delete the zip from `mods\`, put the folder in
+   `mods\unpacked\rls_auto_restock\`, restart the game once.
+2. After editing files, refresh only what changed from the console (`~`):
+
+   ```lua
+   -- UI changes (any .vue / index.js / business-type manifest):
+   rlsAutoRestock.reloadUI()
+   -- equivalent to: guihooks.trigger("UiModsChanged")
+
+   -- Lua extension change:
+   extensions.unload("rlsAutoRestock"); extensions.load("rlsAutoRestock")
+
+   -- everything at once:
+   extensions.unload("rlsAutoRestock"); extensions.load("rlsAutoRestock"); guihooks.trigger("UiModsChanged")
+   ```
+
+3. Saving files under `mods\unpacked\` also fires the file watcher automatically, so UI changes
+   often hot-reload without any command. `Ctrl+L` reloads the whole UI as a sledgehammer.
+
+Career save data (`rlsAutoRestock.json`) is untouched by any of these - settings and in-transit
+deliveries survive.
+
 ## Requirements
 
 - BeamNG.drive **0.40.x**
