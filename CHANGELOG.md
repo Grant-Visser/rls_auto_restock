@@ -5,6 +5,16 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.1.0] - 2026-11-22
+
+### Fixed
+- **"Auto-restock service unreachable" - the real bridge bug.** RLS's
+  `installLuaBridgeFallbacks` wraps the UI's `lua` bridge and only creates call namespaces for
+  extensions known to RLS; an extension loaded by a companion mod resolves to `undefined` on the
+  wrapped bridge, so `lua.rlsAutoRestock.*` calls threw before reaching Lua. The panel now calls
+  Lua through RLS's own proven pattern: a `rawget(_G, ...)`-based `engineLua` expression, which
+  is independent of the bridge's namespace list.
+
 ## [1.0.9] - 2026-11-22
 
 ### Fixed

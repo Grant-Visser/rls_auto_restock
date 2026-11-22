@@ -153,13 +153,45 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { lua } from '@/bridge'
 import { useEvents } from '@/services/events'
 import { BngIcon, icons } from '@/common/components/base'
 
-console.warn("[rls_auto_restock] panel setup running (v1.0.9)")
+console.warn("[rls_auto_restock] panel setup running (v1.1.0)")
 
 const props = defineProps({ data: Object })
+
+function getApi() {
+  return (typeof window !== 'undefined' && (window.bngApi || window.beamng)) || null
+}
+
+function callLua(path, ...args) {
+  return new Promise((resolve, reject) => {
+    try {
+      const api = getApi()
+      if (!api || typeof api.engineLua !== 'function') {
+        reject(new Error('Lua bridge unavailable'))
+        return
+      }
+      const serialized = args
+        .map(arg => (typeof api.serializeToLua === 'function' ? api.serializeToLua(arg) : 'nil'))
+        .join(', ')
+      const parts = String(path).split('.')
+      const root = parts[0]
+      const method = parts.slice(1).join('.')
+      const expr =
+        '(function() ' +
+        `local m = rawget(_G, ${JSON.stringify(root)}) ` +
+        'if type(m) ~= "table" then return nil end ' +
+        `local f = m[${JSON.stringify(method)}] ` +
+        'if type(f) ~= "function" then return nil end ' +
+        `return f(${serialized}) ` +
+        'end)()'
+      api.engineLua(expr, resolve)
+    } catch (err) {
+      reject(err)
+    }
+  })
+}
 
 const store = ref(null)
 const busy = ref(false)
@@ -238,7 +270,7 @@ async function call(method, ...args) {
   busy.value = true
   message.value = ''
   try {
-    return await lua.rlsAutoRestock[method](...args)
+    return await callLua('rlsAutoRestock.' + method, ...args)
   } catch (error) {
     messageError.value = true
     message.value = 'The auto-restock service did not respond. Is the mod enabled?'
@@ -253,7 +285,7 @@ async function refresh() {
   const businessId = props.data?.businessId
   if (businessId === undefined || businessId === null) return
   try {
-    const result = await lua.rlsAutoRestock.getStoreData(businessId)
+    const result = await callLua('rlsAutoRestock.getStoreData', businessId)
     if (unmounted.value || businessId !== props.data?.businessId) return
     if (result && typeof result === 'object') {
       store.value = result
