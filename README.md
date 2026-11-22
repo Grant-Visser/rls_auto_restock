@@ -138,7 +138,7 @@ layout above); if the second is `false`, run `extensions.load("rlsAutoRestock")`
 
 ```
 rls_auto_restock/
-├── gameplay/overhaul/business/types/rls_auto_restock.json   ← adds the Auto-Restock tab to passiveBusiness computers
+├── gameplay/overhaul/business/types/rls-auto-restock-tabs.json   ← adds the Auto-Restock tab to passiveBusiness computers
 ├── gameplay/overhaul/career/modules/rlsAutoRestock.json     ← registers the Lua module with RLS's career module loader
 ├── lua/ge/extensions/rlsAutoRestock.lua                     ← the engine extension (settings, fees, timers, persistence)
 ├── scripts/rls_auto_restock/modScript.lua                   ← loads the extension at game start

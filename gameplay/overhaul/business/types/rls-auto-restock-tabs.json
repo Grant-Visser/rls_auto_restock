@@ -1,5 +1,5 @@
 {
-  "id": "rls_auto_restock",
+  "id": "rls-auto-restock-tabs",
   "order": 90,
   "businessType": "passiveBusiness",
   "namespace": "rls-auto-restock",
