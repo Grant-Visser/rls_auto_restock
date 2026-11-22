@@ -8,7 +8,7 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.2.4"
+local MOD_VERSION = "1.2.5"
 local CONFIG_VERSION = 2
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
@@ -615,8 +615,9 @@ end
 
 local function autoCollectTick(now)
   local properties = passiveProperties()
-  if not properties then return 0, 0 end
+  if not properties then return 0, 0, {} end
   local totalCollected, storesTouched = 0, 0
+  local collectedNames = {}
   for id, state in pairs(properties) do
     id = tostring(id)
     if type(state) == "table" and owned(id) then
@@ -625,27 +626,35 @@ local function autoCollectTick(now)
         local pending = math.max(0, math.floor((tonumber(state.uncollectedEarnings) or 0) + 0.5))
         local last = lastCollect[id] or 0
         if pending > 0 and now - last >= COLLECT_COOLDOWN_SECONDS then
-          if collectEarningsRemote(state, id, pending, archetypeFor(state)) then
+          local archetype = archetypeFor(state)
+          if collectEarningsRemote(state, id, pending, archetype) then
             lastCollect[id] = now
             totalCollected = totalCollected + pending
             storesTouched = storesTouched + 1
+            collectedNames[#collectedNames + 1] = facilityName(id, archetype)
             pushStore(id)
           end
         end
       end
     end
   end
-  return totalCollected, storesTouched
+  return totalCollected, storesTouched, collectedNames
 end
 
 local function updateStores(elapsed)
   local now = os.time()
-  local collectedTotal, collectedStores = autoCollectTick(now)
+  local collectedTotal, collectedStores, collectedNames = autoCollectTick(now)
   if collectedStores > 0 then
     persist()
     saveCareer()
+    local nameList
+    if #collectedNames == 1 then
+      nameList = collectedNames[1]
+    else
+      nameList = table.concat(collectedNames, ", ", 1, #collectedNames - 1) .. " and " .. collectedNames[#collectedNames]
+    end
     notify("success", "Earnings auto-collected",
-      string.format("$%s from %d store%s was added to the wallet.", tostring(moneyRounded(collectedTotal)), collectedStores, collectedStores == 1 and "" or "s"))
+      string.format("$%s was added to the wallet from %s.", tostring(moneyRounded(collectedTotal)), nameList))
   end
   local properties = passiveProperties()
   if not properties then return end
