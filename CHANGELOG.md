@@ -5,6 +5,15 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.0.4] - 2026-11-22
+
+### Added
+- Persistent session probe: whenever the business computer state changes, the entry point logs
+  `businessId`, `activeView`, the active tab's `component` and the live resolver output
+  (component object / NULL / the exact thrown error) to the game log.
+- `AutoRestockPanel.vue` logs when its setup runs, distinguishing mount failures from
+  render failures.
+
 ## [1.0.3] - 2026-11-22
 
 ### Added
