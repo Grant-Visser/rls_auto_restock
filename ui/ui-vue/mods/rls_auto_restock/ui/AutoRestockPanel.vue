@@ -3,7 +3,21 @@
       driver tier with fee estimate, live delivery status and a manual dispatch. -->
 <template>
   <div class="rls-ar">
-    <template v-if="!store || !store.compatible">
+    <section v-if="loadFailed" class="panel warn-panel">
+      <h3 class="panel-title">Auto-restock service unreachable</h3>
+      <p class="hint">
+        The Lua extension <b>rlsAutoRestock</b> did not respond. Check that the mod is enabled in
+        the Mod Manager and restart the game. Console check:
+        <code>dump(extensions.rlsAutoRestock)</code>
+      </p>
+    </section>
+
+    <section v-else-if="!store" class="panel">
+      <h3 class="panel-title">Connecting…</h3>
+      <p class="hint">Talking to the auto-restock service.</p>
+    </section>
+
+    <template v-else-if="!store.compatible">
       <section class="panel warn-panel">
         <h3 class="panel-title">RLS Career Overhaul not detected</h3>
         <p class="hint">
@@ -149,6 +163,7 @@ const store = ref(null)
 const busy = ref(false)
 const message = ref('')
 const messageError = ref(false)
+const loadFailed = ref(false)
 const unmounted = ref(false)
 let poll = null
 
@@ -238,9 +253,12 @@ async function refresh() {
   try {
     const result = await lua.rlsAutoRestock.getStoreData(businessId)
     if (unmounted.value || businessId !== props.data?.businessId) return
-    if (result && typeof result === 'object') store.value = result
+    if (result && typeof result === 'object') {
+      store.value = result
+      loadFailed.value = false
+    }
   } catch (error) {
-    if (!store.value) store.value = { compatible: false, businessName: 'Store' }
+    loadFailed.value = true
   }
 }
 
@@ -293,7 +311,7 @@ onMounted(async () => {
 onUnmounted(() => {
   unmounted.value = true
   window.clearInterval(poll)
-  events.off('RlsAutoRestockStore', onStorePush)
+  if (events.off) events.off('RlsAutoRestockStore', onStorePush)
 })
 </script>
 
