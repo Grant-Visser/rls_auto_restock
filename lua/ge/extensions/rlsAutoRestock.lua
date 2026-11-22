@@ -8,7 +8,7 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.2.0"
+local MOD_VERSION = "1.2.1"
 local CONFIG_VERSION = 1
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
@@ -44,6 +44,7 @@ local anchor = nil
 local anchorFailed = false
 local lastCollect = {}
 local lastSavePath = nil
+local dataLoaded = false
 local updateAccumulator = 0
 
 -- Small helpers -----------------------------------------------------------------------------------
@@ -108,6 +109,7 @@ end
 local settingsFor
 
 function settingsFor(businessId)
+  ensureLoaded()
   local id = tostring(businessId)
   if not settings[id] then
     settings[id] = sanitizeSettings(DEFAULT_SETTINGS)
@@ -116,6 +118,26 @@ function settingsFor(businessId)
 end
 
 -- RLS access --------------------------------------------------------------------------------------
+
+local function currentSavePath()
+  local saveSystem = getExt("overhaul_career_saveSystem")
+  if saveSystem and type(saveSystem.getCurrentProfile) == "function" then
+    local ok, _, path = pcall(saveSystem.getCurrentProfile)
+    if ok then return path end
+  end
+  return nil
+end
+
+-- BeamNG hot-reloads GE extensions when their source file changes; that resets module state.
+-- Reload persisted settings the first time anything asks for them after a reload.
+local function ensureLoaded()
+  if dataLoaded then return end
+  dataLoaded = true
+  loadArchetypeConfig()
+  invalidateAnchor()
+  loadFromSave(currentSavePath())
+  updateAccumulator = 0
+end
 
 -- RLS keeps store state in a module-local table. We hold a live anchor (the function that closes
 -- over it plus the upvalue index) because loadData() replaces the table on every career load.
@@ -362,6 +384,7 @@ local function saveFilePath(savePath)
 end
 
 local function persist()
+  ensureLoaded()
   if not lastSavePath then return end
   local payload = {version = CONFIG_VERSION, settings = {}, deliveries = {}}
   for id, config in pairs(settings) do payload.settings[id] = config end
@@ -783,15 +806,10 @@ end
 -- Game hooks --------------------------------------------------------------------------------------
 
 local function onCareerReady()
+  dataLoaded = true
   loadArchetypeConfig()
-  local saveSystem = getExt("overhaul_career_saveSystem")
-  local savePath = nil
-  if saveSystem and type(saveSystem.getCurrentProfile) == "function" then
-    local ok, _, path = pcall(saveSystem.getCurrentProfile)
-    if ok then savePath = path end
-  end
   invalidateAnchor()
-  loadFromSave(savePath)
+  loadFromSave(currentSavePath())
   updateAccumulator = 0
 end
 
