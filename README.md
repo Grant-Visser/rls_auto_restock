@@ -238,6 +238,10 @@ deliveries survive.
 ## Compatibility & notes
 
 - Per-save settings: enabling auto-restock on one career does not affect another.
+- Companion data follows RLS's autosave rotation: every save (including the exit save) writes the
+  companion file into the same slot RLS is writing, so settings and purchased efficiency levels
+  survive the rotation and game restarts.
+- Tested against **RLS Career Overhaul v2.8.0 and v2.8.1**.
 - Express is faster and pricier; the distance surcharge scales with the depot→store distance, so
   remote stores pay more per run.
 - Efficiency upgrades are per store and persist in the mod's save file. Selling a store and buying

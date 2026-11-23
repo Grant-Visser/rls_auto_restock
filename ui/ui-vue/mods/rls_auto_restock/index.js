@@ -16,7 +16,7 @@ const DASHBOARD_SELECTOR = ".rls-house.passive-app"
 // already-mounted card instead of leaving the stale one in the DOM.
 const CARD_STAMP = 2
 
-const MOD_VERSION = "1.4.0"
+const MOD_VERSION = "1.4.1"
 const fail = err => (err && (err.message || err)) || String(err)
 
 let shimCount = 0

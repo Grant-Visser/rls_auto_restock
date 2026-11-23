@@ -5,6 +5,18 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.4.1] - 2026-11-23
+
+### Fixed
+- **Efficiency levels (and all companion settings) could vanish after a game restart**: RLS's
+  save pipeline rotates autosave slots — every save is written to the *oldest* slot, and
+  `onOverhaulSaveCurrentProfile` receives that rotation target. The companion pinned the first
+  path it ever saw, so its file kept landing in a superseded slot while the career resumed from
+  the newest one. Purchased efficiency levels, thresholds and toggles could roll back to an older
+  state even though the money had been spent. The save hook now follows the rotation target on
+  every save, and the exit save writes the live in-memory state into the rotated slot.
+- First release tested against **RLS Career Overhaul v2.8.1** (no RLS API changes required).
+
 ## [1.4.0] - 2026-11-23
 
 ### Added

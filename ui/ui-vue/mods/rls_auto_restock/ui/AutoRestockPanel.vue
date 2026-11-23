@@ -184,7 +184,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useEvents } from '@/services/events'
 import { BngIcon, icons } from '@/common/components/base'
 
-console.warn("[rls_auto_restock] panel setup running (v1.4.0)")
+console.warn("[rls_auto_restock] panel setup running (v1.4.1)")
 
 const props = defineProps({ data: Object })
 

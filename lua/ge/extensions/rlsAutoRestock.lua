@@ -10,7 +10,7 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.4.0"
+local MOD_VERSION = "1.4.1"
 local CONFIG_VERSION = 3
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
@@ -54,6 +54,10 @@ local anchorFailed = false
 local lastCollect = {}
 local lastSavePath = nil
 local dataLoaded = false
+-- True once loadFromSave has populated the tables in THIS module instance. Survives career
+-- deactivation (the exit save must persist live memory), but resets on a Lua hot-reload so the
+-- self-heal reload runs from disk before anything writes.
+local memoryPopulated = false
 local updateAccumulator = 0
 
 -- Small helpers -----------------------------------------------------------------------------------
@@ -404,7 +408,10 @@ local function saveFilePath(savePath)
 end
 
 local function persist()
-  ensureLoaded()
+  -- Fresh module instance (Lua hot-reload): self-heal from the saved file before writing, so an
+  -- empty table can never overwrite saved settings. After a career deactivation the memory tables
+  -- are still the freshest state and the exit save must write them as-is.
+  if not (dataLoaded or memoryPopulated) then ensureLoaded() end
   if not lastSavePath then return end
   local payload = {version = CONFIG_VERSION, settings = {}, deliveries = {}}
   for id, config in pairs(settings) do payload.settings[id] = config end
@@ -456,6 +463,7 @@ local function loadFromSave(savePath)
     local sanitized = sanitizeDelivery(delivery)
     if sanitized then deliveries[tostring(id)] = sanitized end
   end
+  memoryPopulated = true
 end
 
 currentSavePath = function()
@@ -978,14 +986,20 @@ function M.onOverhaulActive(active)
   if active then
     onCareerReady()
   else
+    -- Keep the memory tables and memoryPopulated: RLS fires the exit save after this hook and it
+    -- must persist the live state. dataLoaded=false marks the career inactive; the next activation
+    -- (or any read) reloads from the career save via the usual self-heal.
     dataLoaded = false
-    lastSavePath = nil
     invalidateAnchor()
   end
 end
 
+-- RLS's save pipeline rotates slots: every save is written to the OLDEST autosave slot and that
+-- path is what this hook receives. Follow it on every save so our file always lands in the slot
+-- the career will resume from (pinning the first-seen path left our data in a superseded slot).
 function M.onOverhaulSaveCurrentProfile(currentSavePath)
-  if not lastSavePath and currentSavePath then lastSavePath = currentSavePath end
+  if not currentSavePath then return end
+  lastSavePath = currentSavePath
   persist()
 end
 
