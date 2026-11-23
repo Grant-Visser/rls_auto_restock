@@ -66,7 +66,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { BngIcon, icons } from '@/common/components/base'
 import { HouseButton } from '/ui/ui-vue/mods/rls_career_overhaul/overhaul/modules/career/components/house/index.js'
 
-console.warn("[rls_auto_restock] efficiency card setup running (v1.4.1)")
+console.warn("[rls_auto_restock] efficiency card setup running (v1.4.2)")
 
 const props = defineProps({ businessId: [String, Number] })
 

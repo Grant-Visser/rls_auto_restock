@@ -162,7 +162,7 @@
             <span class="ar-knob"></span>
             <span class="ar-switch-label">{{ store.settings.autoCollect ? 'Auto-collect on' : 'Auto-collect off' }}</span>
           </button>
-          <span class="note">{{ store.settings.autoCollect ? 'Wallet deposits every 30s of active play.' : 'Enable to sweep earnings into the wallet automatically.' }}</span>
+          <span class="note">{{ store.settings.autoCollect ? 'Wallet deposits every 5 minutes of active play.' : 'Enable to sweep earnings into the wallet automatically.' }}</span>
         </div>
       </section>
 
@@ -184,7 +184,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useEvents } from '@/services/events'
 import { BngIcon, icons } from '@/common/components/base'
 
-console.warn("[rls_auto_restock] panel setup running (v1.4.1)")
+console.warn("[rls_auto_restock] panel setup running (v1.4.2)")
 
 const props = defineProps({ data: Object })
 
@@ -356,7 +356,7 @@ async function setAutoCollect(value) {
   const result = await call('setStoreSettings', props.data?.businessId, { autoCollect: value })
   if (result) {
     store.value = result
-    message.value = value ? 'Auto-collect enabled. Pending earnings sweep into the wallet every 30s.' : 'Auto-collect disabled.'
+    message.value = value ? 'Auto-collect enabled. Pending earnings sweep into the wallet every 5 minutes.' : 'Auto-collect disabled.'
     messageError.value = false
   }
 }

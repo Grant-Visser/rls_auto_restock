@@ -31,6 +31,7 @@ integrates through RLS's own extension points.
 | `restockThresholdPercent` | `0.30` | Dispatch when stock drops below 30% of capacity (presets: 25% / 50% / 75%) |
 | `targetFillPercent` | `1.0` | Order enough pallets to refill to 100% of capacity |
 | `driverTier` | `"standard"` | `"standard"` or `"express"` delivery tier |
+| `autoCollect` | `true` | Sweep pending earnings into the wallet every 5 minutes of active play |
 | `efficiencyLevel` | `0` | Purchased business-efficiency level for this store (0–2) — upgraded from the Upgrades tab |
 
 Settings are stored per `businessId` inside the active RLS career save slot

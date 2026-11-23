@@ -10,13 +10,14 @@ local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.4.1"
+local MOD_VERSION = "1.4.2"
 local CONFIG_VERSION = 3
 local UPDATE_STEP_SECONDS = 1.0
+local DISPATCH_CHECK_SECONDS = 300
+local COLLECT_COOLDOWN_SECONDS = 300
 local MIN_DELIVERY_SECONDS = 5
 local DELIVERY_TIME_CAP = 0.5
 local DISTANCE_FEE_PER_METRE = 0.03
-local COLLECT_COOLDOWN_SECONDS = 30
 local SUPPLY_FEE_LABEL = "Auto-restock driver order"
 local ARCHETYPE_FILE = "gameplay/overhaul/business/passiveBusinessArchetypes.json"
 local SAVE_FILE = "rlsAutoRestock.json"
@@ -52,6 +53,7 @@ local archetypeFallback = nil
 local anchor = nil
 local anchorFailed = false
 local lastCollect = {}
+local lastDispatchCheck = {}
 local lastSavePath = nil
 local dataLoaded = false
 -- True once loadFromSave has populated the tables in THIS module instance. Survives career
@@ -335,13 +337,14 @@ local function unitsNeeded(state, archetype, fillPercent)
   return math.max(0, math.min(wanted - stock, math.max(0, capacity - stock))), capacity
 end
 
-local function deliverySecondsFor(state, archetype, tier)
+local function deliverySecondsFor(state, archetype, tier, speed)
   local base = tierConfig(tier).deliverySeconds
   local untilEmpty = timeUntilEmpty(state, archetype)
-  if untilEmpty then
-    return math.max(MIN_DELIVERY_SECONDS, math.min(base, untilEmpty * DELIVERY_TIME_CAP)), untilEmpty
-  end
-  return base, nil
+  if not untilEmpty then return base, nil end
+  -- Efficiency upgrades multiply the burn rate: the real runtime shrinks by the speed factor, so
+  -- the "arrive before sell-out" cap has to be applied against the effective runtime.
+  local effective = speed > 1 and (untilEmpty / speed) or untilEmpty
+  return math.max(MIN_DELIVERY_SECONDS, math.min(base, effective * DELIVERY_TIME_CAP)), effective
 end
 
 local function quoteFor(state, tier)
@@ -353,7 +356,7 @@ local function quoteFor(state, tier)
   local distance = storeDistance(state)
   local fee = computeDriverFee(tier, supplyCost, distance)
   local total = supplyCost + fee.total
-  local seconds, untilEmpty = deliverySecondsFor(state, archetype, tier)
+  local seconds, untilEmpty = deliverySecondsFor(state, archetype, tier, efficiencySpeed(config.efficiencyLevel))
   local money = getMoney()
   return {
     tier = tier,
@@ -443,7 +446,7 @@ local function sanitizeDelivery(raw)
 end
 
 local function loadFromSave(savePath)
-  settings, deliveries, blocked = {}, {}, {}
+  settings, deliveries, blocked, lastDispatchCheck = {}, {}, {}, {}
   lastSavePath = savePath
   if not savePath then return end
   local data = jsonReadFile(saveFilePath(savePath))
@@ -523,6 +526,21 @@ local function buildStoreView(businessId)
     }
   end
   local archetype = archetypeFor(state)
+  local effLevel = efficiencyLevelFor(config.efficiencyLevel)
+  local effSpeed = efficiencySpeed(effLevel)
+  local baseCycle = tonumber(archetype and archetype.cycleSeconds) or 0
+  local palletCost = unitPrice(state)
+  local nextLevel = effLevel < MAX_EFFICIENCY_LEVEL and (effLevel + 1) or nil
+  local nextCost = nextLevel and efficiencyCost(state, archetype, nextLevel) or nil
+  -- Per-hour figures mirror RLS's dashboard math: net per pallet over the effective cycle.
+  local netPerPallet = math.max(0, indexed(archetype and archetype.unitRevenue or 0) - unitPrice(state))
+  local profitPerHour = netPerPallet > 0 and baseCycle > 0 and effSpeed > 0
+    and math.floor(netPerPallet * 3600 / (baseCycle / effSpeed) + 0.5) or 0
+  local nextSpeed = nextLevel and EFFICIENCY_LEVELS[nextLevel] or nil
+  local nextProfitPerHour = nextSpeed and netPerPallet > 0 and baseCycle > 0
+    and math.floor(netPerPallet * 3600 / (baseCycle / nextSpeed) + 0.5) or nil
+  local money = getMoney()
+  local rawRuntime = timeUntilEmpty(state, archetype)
   local view = {
     businessId = id,
     success = true,
@@ -538,7 +556,7 @@ local function buildStoreView(businessId)
     wholesaleOwned = state.wholesaleOwned == true,
     pendingEarnings = math.max(0, math.floor((tonumber(state.uncollectedEarnings) or 0) + 0.5)),
     cycleSeconds = tonumber(archetype and archetype.cycleSeconds) or 0,
-    sellsOutInSeconds = timeUntilEmpty(state, archetype),
+    sellsOutInSeconds = rawRuntime and effSpeed > 1 and (rawRuntime / effSpeed) or rawRuntime,
     onCurrentMap = state.mapId == getCurrentLevelIdentifier(),
     settings = config,
     delivery = nil,
@@ -549,20 +567,6 @@ local function buildStoreView(businessId)
   for _, tier in ipairs({"standard", "express"}) do
     view.quotes[tier] = quoteFor(state, tier)
   end
-  local effLevel = efficiencyLevelFor(config.efficiencyLevel)
-  local effSpeed = efficiencySpeed(effLevel)
-  local baseCycle = tonumber(archetype and archetype.cycleSeconds) or 0
-  local palletCost = unitPrice(state)
-  local nextLevel = effLevel < MAX_EFFICIENCY_LEVEL and (effLevel + 1) or nil
-  local nextCost = nextLevel and efficiencyCost(state, archetype, nextLevel) or nil
-  -- Per-hour figures mirror RLS's dashboard math: net per pallet over the effective cycle.
-  local netPerPallet = math.max(0, indexed(archetype and archetype.unitRevenue or 0) - unitPrice(state))
-  local profitPerHour = netPerPallet > 0 and baseCycle > 0 and effSpeed > 0
-    and math.floor(netPerPallet * 3600 / (baseCycle / effSpeed) + 0.5) or 0
-  local nextSpeed = nextLevel and EFFICIENCY_LEVELS[nextLevel] or nil
-  local nextProfitPerHour = nextSpeed and netPerPallet > 0 and baseCycle > 0
-    and math.floor(netPerPallet * 3600 / (baseCycle / nextSpeed) + 0.5) or nil
-  local money = getMoney()
   view.efficiency = {
     level = effLevel,
     maxLevel = MAX_EFFICIENCY_LEVEL,
@@ -656,7 +660,7 @@ local function dispatch(state, businessId, tierOverride)
     pushStore(id)
     return false
   end
-  local seconds = deliverySecondsFor(state, archetype, tier)
+  local seconds = deliverySecondsFor(state, archetype, tier, efficiencySpeed(config.efficiencyLevel))
   deliveries[id] = {
     units = units,
     supplyCost = supplyCost,
@@ -762,7 +766,11 @@ local function updateStores(elapsed)
           state.cycleProgress = (tonumber(state.cycleProgress) or 0) + (speed - 1) * elapsed
         end
         local delivery = deliveries[id]
-        if config.enabled and not delivery then
+        -- Dispatch checks run on a slow cadence (DISPATCH_CHECK_SECONDS): between checks the store
+        -- simply keeps selling until the next look. Transit timers and the efficiency feed above
+        -- stay on the fast tick.
+        if config.enabled and not delivery and now - (lastDispatchCheck[id] or 0) >= DISPATCH_CHECK_SECONDS then
+          lastDispatchCheck[id] = now
           local capacity = capacityFor(state, archetype) or 0
           local stock = math.max(0, math.floor(tonumber(state.stock) or 0))
           local threshold = capacity * (config.thresholdPercent or 0.30)
@@ -825,8 +833,17 @@ function M.setStoreSettings(businessId, changes)
   local id = tostring(businessId)
   local config = settingsFor(id)
   if type(changes) == "table" then
-    if changes.enabled ~= nil then config.enabled = changes.enabled == true end
-    if changes.autoCollect ~= nil then config.autoCollect = changes.autoCollect == true end
+    if changes.enabled ~= nil then
+      local wasEnabled = config.enabled
+      config.enabled = changes.enabled == true
+      -- turning auto-restock on should act on the next fast tick, not wait out the check interval
+      if config.enabled ~= wasEnabled then lastDispatchCheck[id] = nil end
+    end
+    if changes.autoCollect ~= nil then
+      local wasCollecting = config.autoCollect
+      config.autoCollect = changes.autoCollect == true
+      if config.autoCollect ~= wasCollecting then lastCollect[id] = nil end
+    end
     if changes.thresholdPercent ~= nil then config.thresholdPercent = tonumber(changes.thresholdPercent) end
     if changes.targetFillPercent ~= nil then config.targetFillPercent = tonumber(changes.targetFillPercent) end
     if changes.driverTier ~= nil then config.driverTier = changes.driverTier end
@@ -1019,5 +1036,10 @@ end
 M.TIERS = TIERS
 M.EFFICIENCY_LEVELS = EFFICIENCY_LEVELS
 M.MAX_EFFICIENCY_LEVEL = MAX_EFFICIENCY_LEVEL
+M.CHECK_INTERVALS = {
+  updateTick = UPDATE_STEP_SECONDS,
+  dispatchCheck = DISPATCH_CHECK_SECONDS,
+  collectCooldown = COLLECT_COOLDOWN_SECONDS,
+}
 
 return M

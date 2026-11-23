@@ -5,6 +5,20 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.4.2] - 2026-11-23
+
+### Changed
+- **Auto-collect and auto-restock now check every 5 minutes.** The collect sweep uses a 300s
+  per-store cooldown (was 30s) and the dispatch trigger is evaluated on the same cadence (was
+  every update tick). Toggling a setting on still acts on the next tick. In-transit delivery
+  timers and the efficiency speed-up feed keep their 1s tick — both are continuous and must stay
+  accurate.
+
+### Fixed
+- The "delivery always arrives before sell-out" cap now accounts for business-efficiency speed:
+  the effective runtime of the stock shrinks by the speed multiplier, so a 4× store can no longer
+  go empty while a capped delivery is still in transit.
+
 ## [1.4.1] - 2026-11-23
 
 ### Fixed
