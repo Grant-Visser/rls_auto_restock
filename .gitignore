@@ -17,3 +17,6 @@ tmp/
 .idea/
 *.sublime-*
 node_modules/
+
+# Release artifacts (built zips live in releases/)
+releases/

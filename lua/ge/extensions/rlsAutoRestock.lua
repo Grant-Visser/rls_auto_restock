@@ -3,12 +3,14 @@
 -- Reads RLS store state through the passive business module, charges a transparent
 -- driver fee on top of the wholesale supply cost, and runs simulated delivery
 -- timers that are always faster than a store's consumption rate.
+-- Also sells business-efficiency upgrades (from RLS's Upgrades tab): each level
+-- multiplies the store's selling speed, halving the earnings cycle per level.
 
 local M = {}
 
 -- Configuration -----------------------------------------------------------------------------------
 
-local MOD_VERSION = "1.3.0"
+local MOD_VERSION = "1.4.0"
 local CONFIG_VERSION = 3
 local UPDATE_STEP_SECONDS = 1.0
 local MIN_DELIVERY_SECONDS = 5
@@ -27,12 +29,19 @@ local DEFAULT_SETTINGS = {
   targetFillPercent = 1.0,
   driverTier = "standard",
   autoCollect = true,
+  efficiencyLevel = 0,
 }
 
 local TIERS = {
   standard = { baseDispatchFee = 150, cargoSurcharge = 0.12, deliverySeconds = 45 },
   express = { baseDispatchFee = 300, cargoSurcharge = 0.22, deliverySeconds = 20 },
 }
+
+-- Business-efficiency upgrade tiers: index = level, value = selling-speed multiplier.
+-- Level 1 doubles the payout rate (half the earnings cycle), level 2 quadruples it.
+-- Purchase cost is the multiplier times the current (wholesale-aware) pallet price.
+local EFFICIENCY_LEVELS = { 2, 4 }
+local MAX_EFFICIENCY_LEVEL = #EFFICIENCY_LEVELS
 
 -- State -------------------------------------------------------------------------------------------
 
@@ -97,12 +106,14 @@ local function sanitizeSettings(raw)
   raw = type(raw) == "table" and raw or {}
   local threshold = tonumber(raw.thresholdPercent)
   local fill = tonumber(raw.targetFillPercent)
+  local efficiency = math.floor(tonumber(raw.efficiencyLevel) or 0)
   return {
     enabled = raw.enabled == true,
     thresholdPercent = math.min(0.95, math.max(0.05, threshold or DEFAULT_SETTINGS.thresholdPercent)),
     targetFillPercent = math.min(1.0, math.max(0.1, fill or DEFAULT_SETTINGS.targetFillPercent)),
     driverTier = validTier(raw.driverTier),
     autoCollect = raw.autoCollect == true,
+    efficiencyLevel = math.max(0, math.min(MAX_EFFICIENCY_LEVEL, efficiency)),
   }
 end
 
@@ -235,6 +246,27 @@ local function timeUntilEmpty(state, archetype)
   return (state.stock - 1) * cycleSeconds + math.max(0, cycleSeconds - (tonumber(state.cycleProgress) or 0))
 end
 
+-- Business efficiency ------------------------------------------------------------------------------
+
+local function efficiencyLevelFor(value)
+  local level = math.floor(tonumber(value) or 0)
+  return math.max(0, math.min(MAX_EFFICIENCY_LEVEL, level))
+end
+
+local function efficiencySpeed(level)
+  local lvl = efficiencyLevelFor(level)
+  return lvl > 0 and EFFICIENCY_LEVELS[lvl] or 1
+end
+
+-- Each level costs a multiple of the current (wholesale-aware, indexed) pallet price.
+local function efficiencyCost(state, archetype, level)
+  local multiplier = EFFICIENCY_LEVELS[efficiencyLevelFor(level)]
+  if not multiplier then return nil end
+  local palletPrice = unitPrice(state)
+  if palletPrice <= 0 then return nil end
+  return moneyRounded(palletPrice * multiplier)
+end
+
 local function coordinatesFor(state, role)
   local generator = getExt("overhaul_career_logistics_generator")
   if not generator or type(generator.getLocationCoordinates) ~= "function" then return nil end
@@ -346,15 +378,21 @@ local function recordStoreFinance(state, amount, quantity, kind)
   table.insert(state.financeHistory, row)
   while #state.financeHistory > HISTORY_LIMIT do table.remove(state.financeHistory, 1) end
   local totals = type(state.financeTotals) == "table" and state.financeTotals or {}
+  -- Efficiency upgrades belong in RLS's "Upgrades" lifetime total, like its own storage/wholesale buys.
   local key = kind == "collect" and "collected" or "supplies"
+  if kind == "collect" then
+    key = "collected"
+  elseif kind == "efficiency" then
+    key = "upgrades"
+  end
   totals[key] = math.max(0, math.floor((tonumber(totals[key]) or 0) + amount))
   state.financeTotals = totals
 end
 
-local function payOrder(state, amount, label)
+local function payOrder(state, amount, label, category)
   local payment = getExt("overhaul_career_economy_payment")
   if not payment or type(payment.pay) ~= "function" then return false end
-  local reason = {category = "business", label = label}
+  local reason = {category = category or "business", label = label}
   local ok, result = pcall(payment.pay, {money = {amount = amount, canBeNegative = false}}, reason)
   return ok and result and true or false
 end
@@ -503,6 +541,35 @@ local function buildStoreView(businessId)
   for _, tier in ipairs({"standard", "express"}) do
     view.quotes[tier] = quoteFor(state, tier)
   end
+  local effLevel = efficiencyLevelFor(config.efficiencyLevel)
+  local effSpeed = efficiencySpeed(effLevel)
+  local baseCycle = tonumber(archetype and archetype.cycleSeconds) or 0
+  local palletCost = unitPrice(state)
+  local nextLevel = effLevel < MAX_EFFICIENCY_LEVEL and (effLevel + 1) or nil
+  local nextCost = nextLevel and efficiencyCost(state, archetype, nextLevel) or nil
+  -- Per-hour figures mirror RLS's dashboard math: net per pallet over the effective cycle.
+  local netPerPallet = math.max(0, indexed(archetype and archetype.unitRevenue or 0) - unitPrice(state))
+  local profitPerHour = netPerPallet > 0 and baseCycle > 0 and effSpeed > 0
+    and math.floor(netPerPallet * 3600 / (baseCycle / effSpeed) + 0.5) or 0
+  local nextSpeed = nextLevel and EFFICIENCY_LEVELS[nextLevel] or nil
+  local nextProfitPerHour = nextSpeed and netPerPallet > 0 and baseCycle > 0
+    and math.floor(netPerPallet * 3600 / (baseCycle / nextSpeed) + 0.5) or nil
+  local money = getMoney()
+  view.efficiency = {
+    level = effLevel,
+    maxLevel = MAX_EFFICIENCY_LEVEL,
+    speedMultiplier = effSpeed,
+    cycleSeconds = effSpeed > 0 and (baseCycle / effSpeed) or baseCycle,
+    baseCycleSeconds = baseCycle,
+    profitPerHour = profitPerHour,
+    palletCost = palletCost,
+    nextLevel = nextLevel,
+    nextMultiplier = nextSpeed,
+    nextCycleSeconds = nextSpeed and nextSpeed > 0 and (baseCycle / nextSpeed) or nil,
+    nextProfitPerHour = nextProfitPerHour,
+    nextCost = nextCost,
+    affordable = (nextCost and money ~= nil and money >= nextCost) or false,
+  }
   if delivery then
     view.delivery = {
       units = delivery.units,
@@ -680,6 +747,12 @@ local function updateStores(elapsed)
       local archetype = archetypeFor(state)
       if archetype and archetype.supplyType ~= false and owned(id) then
         local config = settingsFor(id)
+        -- Business efficiency: fast-forward the store's sale cycle. RLS's own advanceState turns the
+        -- extra progress into pallets and uncollected earnings on its next update tick.
+        local speed = efficiencySpeed(config.efficiencyLevel)
+        if speed > 1 and state.operating ~= false and (tonumber(state.stock) or 0) > 0 then
+          state.cycleProgress = (tonumber(state.cycleProgress) or 0) + (speed - 1) * elapsed
+        end
         local delivery = deliveries[id]
         if config.enabled and not delivery then
           local capacity = capacityFor(state, archetype) or 0
@@ -749,6 +822,7 @@ function M.setStoreSettings(businessId, changes)
     if changes.thresholdPercent ~= nil then config.thresholdPercent = tonumber(changes.thresholdPercent) end
     if changes.targetFillPercent ~= nil then config.targetFillPercent = tonumber(changes.targetFillPercent) end
     if changes.driverTier ~= nil then config.driverTier = changes.driverTier end
+    if changes.efficiencyLevel ~= nil then config.efficiencyLevel = tonumber(changes.efficiencyLevel) end
   end
   settings[id] = sanitizeSettings(config)
   persist()
@@ -836,6 +910,56 @@ function M.collectNow(businessId)
   return view
 end
 
+-- Buys the next business-efficiency level for a store: each level multiplies the selling speed
+-- (halving the earnings cycle). Costs a multiple of a full store of stock; charged like RLS's own
+-- upgrades (category "purchase") and recorded into the store's Upgrades finance total.
+function M.purchaseEfficiencyUpgrade(businessId)
+  local id = tostring(businessId)
+  local properties = passiveProperties()
+  local state = properties and properties[id] or nil
+  if not state or not owned(id) then
+    return {success = false, message = "This store is unavailable for upgrades."}
+  end
+  local archetype = archetypeFor(state)
+  if not archetype or archetype.supplyType == false then
+    return {success = false, message = "This store has no retail cycle to speed up."}
+  end
+  local config = settingsFor(id)
+  local level = efficiencyLevelFor(config.efficiencyLevel)
+  if level >= MAX_EFFICIENCY_LEVEL then
+    return {success = false, message = "Business efficiency is already at its maximum.", store = buildStoreView(id)}
+  end
+  local nextLevel = level + 1
+  local cost = efficiencyCost(state, archetype, nextLevel)
+  if not cost or cost <= 0 then
+    return {success = false, message = "The efficiency upgrade is unavailable for this store."}
+  end
+  local money = getMoney()
+  if money == nil or money < cost then
+    return {
+      success = false,
+      message = string.format("The upgrade costs $%d but the wallet holds $%s.", cost, tostring(money)),
+      store = buildStoreView(id),
+    }
+  end
+  local name = facilityName(id, archetype)
+  local label = string.format("%s efficiency upgrade (level %d)", name, nextLevel)
+  if not payOrder(state, cost, label, "purchase") then
+    return {success = false, message = "The efficiency upgrade could not be paid for.", store = buildStoreView(id)}
+  end
+  config.efficiencyLevel = nextLevel
+  recordStoreFinance(state, cost, nil, "efficiency")
+  persist()
+  saveCareer()
+  local speed = EFFICIENCY_LEVELS[nextLevel]
+  local cycle = math.max(1, math.floor(((tonumber(archetype.cycleSeconds) or 0) / speed) + 0.5))
+  notify("success", name .. " efficiency upgraded",
+    string.format("Level %d: payouts arrive %dx as often - one pallet sold every %ds of active play.", nextLevel, speed, cycle))
+  local view = buildStoreView(id)
+  pushStore(id)
+  return {success = true, message = "Business efficiency upgraded to level " .. nextLevel .. ".", store = view}
+end
+
 -- Game hooks --------------------------------------------------------------------------------------
 
 local function onCareerReady()
@@ -879,5 +1003,7 @@ function M.onClientEndMission()
 end
 
 M.TIERS = TIERS
+M.EFFICIENCY_LEVELS = EFFICIENCY_LEVELS
+M.MAX_EFFICIENCY_LEVEL = MAX_EFFICIENCY_LEVEL
 
 return M

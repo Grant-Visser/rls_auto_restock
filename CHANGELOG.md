@@ -5,6 +5,25 @@ game log (`RLS Auto-Restock companion vX.Y.Z loaded`) and in the UI entry log
 (`[rls_auto_restock] UI entry point loaded (vX.Y.Z)`) so an installed build can always be
 identified.
 
+## [1.4.0] - 2026-11-23
+
+### Added
+- **Business efficiency upgrades** (two levels), controlled from RLS's own **Upgrades** tab in the
+  passive-business computer — not from the Auto-Restock tab. Each level multiplies the store's
+  selling speed, halving the earnings cycle: level 1 sells 2× faster, level 2 sells 4× faster
+  (payouts arrive 2×/4× as often). Implemented without touching RLS: the companion feeds extra
+  `cycleProgress` into RLS's own production loop, so sales, finance history and totals stay native.
+- **Costs**: level 1 = 2× the current pallet price, level 2 = 4× (pallet price is the store's
+  supply cost per pallet, wholesale-aware and economy-indexed). Charged through RLS's
+  payment pipeline as a `purchase`, recorded in the store's finance history and counted in the
+  Upgrades lifetime total.
+- **`purchaseEfficiencyUpgrade(businessId)`** Lua API plus an `efficiency` block in
+  `getStoreData` (level, effective cycle, per-hour figures, next cost and affordability).
+- **`EfficiencyUpgradeCard.vue`**: a house-style card injected into the Upgrades page next to
+  Storage and Wholesale (a small separate Vue app mounted by `index.js`, idempotent across
+  `UiModsChanged` reloads via a window-shared slot, and rebound when the computer switches
+  businesses without leaving the Upgrades view).
+
 ## [1.3.0] - 2026-11-22
 
 ### Fixed

@@ -3,7 +3,7 @@
 **Autonomous virtual delivery drivers for [RLS Career Overhaul](https://www.patreon.com/rlsmodding) passive businesses in BeamNG.drive.**
 
 > ## ⚠️ Beta
-> This mod is still in **BETA**. It has been battle-tested on one career (v1.3.0, BeamNG 0.40.x,
+> This mod is still in **BETA**. It has been battle-tested on one career (v1.4.0, BeamNG 0.40.x,
 > RLS v2.8.0), but RLS Career Overhaul is a huge, fast-moving mod and edge cases will surface.
 > If you uncover an issue — a broken panel, a mis-firing delivery, a save hiccup — please
 > [report it](https://github.com/Grant-Visser/rls_auto_restock/issues) for a patch. Even better:
@@ -31,6 +31,7 @@ integrates through RLS's own extension points.
 | `restockThresholdPercent` | `0.30` | Dispatch when stock drops below 30% of capacity (presets: 25% / 50% / 75%) |
 | `targetFillPercent` | `1.0` | Order enough pallets to refill to 100% of capacity |
 | `driverTier` | `"standard"` | `"standard"` or `"express"` delivery tier |
+| `efficiencyLevel` | `0` | Purchased business-efficiency level for this store (0–2) — upgraded from the Upgrades tab |
 
 Settings are stored per `businessId` inside the active RLS career save slot
 (`…/career/rls_career/rlsAutoRestock.json`) and survive game restarts. In-transit deliveries
@@ -73,6 +74,29 @@ The transit time is clamped to **at most half of the time until the shelves empt
 so a delivery can never arrive after a sell-out. On completion the pallets are credited (clamped to
 capacity), a toast notification shows the store, amount and driver fee, and the next cycle begins.
 
+### Business efficiency upgrades (Upgrades tab)
+
+Every owned store's computer also gains a third upgrade card — **Business efficiency** — on the
+Business Computer's own **Upgrades** tab, right below Storage and Wholesale (the Auto-Restock tab
+stays driver-only). Each level multiplies the store's selling speed, halving the earnings cycle and
+making payouts arrive more often:
+
+| Level | Selling speed | Earnings cycle | Cost |
+| --- | --- | --- | --- |
+| 1 | 2× | halved (Mini Mart: 6m → 3m per pallet) | 2× the current pallet price |
+| 2 | 4× | quartered (Mini Mart: 6m → 1m 30s per pallet) | 4× the current pallet price |
+
+- The **pallet price** is the store's live supply cost per pallet — wholesale-aware and indexed by
+  the global economy, exactly like RLS prices it
+- The card shows the effective payout cycle, the speed multiplier, the extra earnings per hour at
+  full stock and the exact next-tier cost; it disables itself when the wallet can't cover it
+- Purchases charge through RLS's payment pipeline as a `purchase`, appear in the store's finance
+  history and count toward the **Upgrades** lifetime total
+- Under the hood the upgrade feeds extra progress into RLS's own production loop — RLS still sells
+  every pallet and books every dollar itself, so sales, finance rows and totals stay fully native
+- Faster selling also burns stock faster; with auto-restock enabled, dispatches scale up to match
+  automatically
+
 ### Store Management UI integration
 
 Each owned store's Business Computer gains an **Auto-Restock** tab (via RLS's business-type tab
@@ -86,6 +110,7 @@ manifest system — no RLS files are edited):
   `Insufficient funds` · `Travel to this store's map`
 - Manual **Dispatch driver now** button and delivery cancel, if you want to drive the economics
   yourself
+- A **Business efficiency** card injected into the store's existing Upgrades page (see above)
 
 ### Safety & error handling
 
@@ -148,9 +173,13 @@ layout above); if the second is `false`, run `extensions.load("rlsAutoRestock")`
 rls_auto_restock/
 ├── gameplay/overhaul/business/types/rls-auto-restock-tabs.json   ← adds the Auto-Restock tab to passiveBusiness computers
 ├── gameplay/overhaul/career/modules/rlsAutoRestock.json     ← registers the Lua module with RLS's career module loader
-├── lua/ge/extensions/rlsAutoRestock.lua                     ← the engine extension (settings, fees, timers, persistence)
+├── lua/ge/extensions/rlsAutoRestock.lua                     ← the engine extension (settings, fees, timers, efficiency, persistence)
 ├── scripts/rls_auto_restock/modScript.lua                   ← loads the extension at game start
-└── ui/ui-vue/mods/rls_auto_restock/ui/AutoRestockPanel.vue  ← the tab UI (loaded by BeamNG's runtime component loader)
+└── ui/ui-vue/mods/rls_auto_restock/
+    ├── index.js                                             ← UI entry point: catalog shims + Upgrades-tab card injection
+    └── ui/
+        ├── AutoRestockPanel.vue                             ← the Auto-Restock tab UI (BeamNG runtime component loader)
+        └── EfficiencyUpgradeCard.vue                        ← the Business-efficiency card rendered inside RLS's Upgrades page
 ```
 
 Want to build your own RLS companion mod? The complete knowledge base this mod was debugged
@@ -163,7 +192,8 @@ debugging playbook.
   upvalue anchor, so stock reads/writes stay consistent with RLS's own production loop without
   touching RLS code. Supply prices, wholesale status, facility coordinates and the career wallet
   come from RLS's public modules (`overhaul_career_economy_*`, `overhaul_world_facilities`,
-  `overhaul_career_logistics_generator`).
+  `overhaul_career_logistics_generator`). Efficiency upgrades simply feed extra `cycleProgress`
+  into RLS's own production loop, so accelerated payouts remain native RLS sales.
 - **Persistence** — settings and in-transit timers are written to
   `<save slot>/career/rls_career/rlsAutoRestock.json` on every RLS career save
   (`onOverhaulSaveCurrentProfile`) and reloaded on career activation.
@@ -210,6 +240,9 @@ deliveries survive.
 - Per-save settings: enabling auto-restock on one career does not affect another.
 - Express is faster and pricier; the distance surcharge scales with the depot→store distance, so
   remote stores pay more per run.
+- Efficiency upgrades are per store and persist in the mod's save file. Selling a store and buying
+  it back restores the previously purchased level without a re-charge (and there is no refund on
+  sale — efficiency is not part of RLS's resale quote).
 - The mod never takes revenue — it only pays suppliers and drivers. Money leaves the wallet via
   RLS's normal payment pipeline (visible in the wallet history).
 
